@@ -1,0 +1,37 @@
+Softirq - 
+1. Softirqs are statically allocated at compile time. Unlike tasklets, you cannot dynamically register and destroy softirqs.
+2. A softirq never preempts another softirq. The only event that can preempt a softirq is an interrupt handler. Another softirq (even the same one) can run on another processor, however.
+3. Softirqs are reserved for the most timing-critical and important bottom-half processing on the system.
+	Currently, only two subsystems directly use softirqs:
+		Networking devices
+		Block devices
+4. Additionally, kernel timers and tasklets are built on top of softirqs.	
+5. The softirq handlers run with interrupts enabled and cannot sleep.
+6. While a handler runs, softirqs on the current processor are disabled. However, another processor can execute other softirqs.
+7. If the same softirq is raised again while it is executing, another processor can run it simultaneously. This means that any shared data, even global data used only within the softirq handler, needs proper locking.
+8. Simply preventing your softirqs from running concurrently is not ideal. If a softirq obtained a lock to prevent another instance of itself from running simultaneously, there would be no reason to use a softirq. 
+   Consequently, most softirq handlers resort to per-processor data (data unique to each processor and thus not requiring locking) and other tricks to avoid explicit locking and provide excellent scalability.
+9. The reason for using softirqs is scalability. If you do not need to scale to infinitely many processors, then use a tasklet. 
+   Tasklets are essentially softirqs in which multiple instances of the same handler cannot run concurrently on multiple processors.
+
+
+Tasklet -
+1. Tasklets are a bottom-half mechanism built on top of softirqs.
+2. As with softirqs, tasklets cannot sleep. You cannot use semaphores or other blocking functions in a tasklet.
+3. Tasklets also run with all interrupts enabled, so you must take precautions (for example, disable interrupts and obtain a lock) if your tasklet shares data with an interrupt handler.
+4. Unlike softirqs, two of the same tasklets never run concurrently, though two different tasklets can run at the same time on two different processors. If your tasklet shares data with another tasklet or softirq, you need to use proper    locking.
+5. After a tasklet is scheduled, it runs once at some time in the near future. If the same tasklet is scheduled again, before it has had a chance to run, it still runs only once.
+6 . If it is already running, for example on another processor, the tasklet is rescheduled and runs again. As an optimization, a tasklet always runs on the processor that scheduled it, making better use of the processor's cache.
+7. You can disable a tasklet via a call to tasklet_disable(), which disables the given tasklet. If the tasklet is currently running, the function will not return until it finishes executing.
+8. Alternatively, you can use tasklet_disable_nosync(), which disables the given tasklet but does not wait for the tasklet to complete prior to returning. This is usually not safe because you cannot assume the tasklet is not still runnin
+
+
+WorkQueue - 
+1. Work queues defer work into a kernel thread; this bottom half always runs in process context:
+	Code deferred to a work queue has all the usual benefits of process context.
+	Most importantly, work queues are schedulable and can therefore sleep. 
+2. Normally, it is easy to decide between using work queues and softirqs/tasklets:
+	If the deferred work needs to sleep, work queues are used.
+	If the deferred work need not sleep, softirqs or tasklets are used.
+3. Indeed, the usual alternative to work queues is kernel threads. Because the kernel developers frown upon creating a new kernel thread, work queues are strongly preferred. They are also easy to use.
+
