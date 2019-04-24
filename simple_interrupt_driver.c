@@ -4,7 +4,10 @@
 #include<linux/interrupt.h>
 #include <linux/platform_device.h>
 
-unsigned int irq = 15;
+/*you can use any interrupt line which is shared in your system
+  you can get this information from cat /proc/interrupts */
+
+unsigned int irq = 15; 
 
 static irqreturn_t simple_interrupt_handler (int irq, void *dev)
 {
