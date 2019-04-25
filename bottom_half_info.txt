@@ -35,3 +35,50 @@ WorkQueue -
 	If the deferred work need not sleep, softirqs or tasklets are used.
 3. Indeed, the usual alternative to work queues is kernel threads. Because the kernel developers frown upon creating a new kernel thread, work queues are strongly preferred. They are also easy to use.
 
+
+Which Bottom Half Should I Use?
+	The decision over which bottom half to use is important. The current 2.6 kernel provides three choices: softirqs, tasklets, and work queues. 
+	Tasklets are built on softirqs and, therefore, both are similar. The work queue mechanism is an entirely different creature and is built on kernel threads.
+
+Softirqs: least serialization, for highly threaded code *
+	Softirqs, by design, provide the least serialization. This requires softirq handlers to go through extra steps to ensure that shared data is safe because two or more softirqs of the 
+	same type may run concurrently on different processors. If the code in question is already highly threaded, such as in a networking subsystem that is chest-deep in per-processor variables, 
+	softirqs make a good choice. They are certainly the fastest alternative for timing-critical and high-frequency uses.
+
+Tasklets: simple interface, for less threaded code *
+	Tasklets make more sense if the code is not finely threaded. They have a simpler interface and, because two tasklets of the same type might not run concurrently, they are easier to implement. 
+	Tasklets are effectively softirqs that do not run concurrently. A driver developer should always choose tasklets over softirqs, unless prepared to utilize per-processor variables or similar 
+	magic to ensure that the softirq can safely run concurrently on multiple processors.
+
+Work queues: process context *
+	If the deferred work needs to run in process context, the only choice of the three is work queues. If process context is not a requirements (specifically, if you have no need to sleep), 
+	softirqs or tasklets are perhaps better suited. Work queues involve the highest overhead because they involve kernel threads and, therefore, context switching. This doesn't mean they are inefficient, 
+	but in light of thousands of interrupts hitting per second (as the networking subsystem might experience), other methods make more sense. However, work queues are sufficient for most situations.
+
+Softirqs vs. tasklets vs. work queues
+	In terms of ease of use, work queues wins. Using the default events queue is easy. Next come tasklets, which also have a simple interface. Coming in last are softirqs, which need to be statically 
+	created and require careful thinking with their implementation.
+
+The following table is a comparison between the three bottom-half interfaces.
+	Bottom Half		Context			Inherent Serialization
+	Softirq			Interrupt		None
+	Tasklet			Interrupt		Against the same tasklet
+	Work queues		Process			None (scheduled as process context)
+
+In short, normal driver writers have two choices:
+	If you need a schedulable entity to perform your deferred work, and if fundamentally, you need to sleep for any reason, then work queues are your only option. Otherwise, tasklets are preferred. 
+	Only if scalability becomes a concern do you investigate softirqs.
+
+Locking Between the Bottom Halves
+	It is crucial to protect shared data from concurrent access while using bottom halves, even on a single processor machine. A bottom half can run at virtually any moment.
+	One benefit of tasklets is that they are serialized with respect to themselves. The same tasklet will not run concurrently, even on two different processors. 
+	This means you do not have to worry about intra-tasklet concurrency issues. Inter-tasklet concurrency (when two different tasklets share the same data) requires proper locking.
+	Because softirqs provide no serialization, (even two instances of the same softirq might run simultaneously), all shared data needs an appropriate lock.
+	If process context code and a bottom half share data, you need to do both of the following before accessing the data:
+	Disable bottom-half processing.
+	Obtain a lock.
+This ensures both ensures local and SMP protection and prevents a deadlock.
+If interrupt context code and a bottom half share data, you need to do both of the following before accessing the data:
+Disable interrupts.
+Obtain a lock.
+
