@@ -27,13 +27,22 @@ Tasklet -
 
 
 WorkQueue - 
-1. Work queues defer work into a kernel thread; this bottom half always runs in process context:
+1. The work queue subsystem is an interface for creating kernel threads to handle work queued from elsewhere. These kernel threads are called worker threads. 
+2. Work queues enables your driver to create a special worker thread to handle deferred work. The work queue subsystem, however, implements and provides a default worker thread for handling work. 
+   Therefore, in its most common form, a work queue is a simple interface for deferring work to a generic kernel thread.
+3. The default worker threads are called events/n where n is the processor number; there is one per processor. For example, on a uniprocessor system there is one thread, events/0. 
+   A dual processor system would additionally have an events/1 thread.
+4. Unless a driver or subsystem has a strong requirement for creating its own thread, the default thread is preferred.
+5. Creating your own worker thread might be advantageous if you perform large amounts of processing in the worker thread. Processor-intense and performance-critical work might
+   benefit from its own thread. This also lightens the load on the default threads, which prevents starving the rest of the queued work
+6. Work queues defer work into a kernel thread; this bottom half always runs in process context:
 	Code deferred to a work queue has all the usual benefits of process context.
 	Most importantly, work queues are schedulable and can therefore sleep. 
-2. Normally, it is easy to decide between using work queues and softirqs/tasklets:
+7. Normally, it is easy to decide between using work queues and softirqs/tasklets:
 	If the deferred work needs to sleep, work queues are used.
 	If the deferred work need not sleep, softirqs or tasklets are used.
-3. Indeed, the usual alternative to work queues is kernel threads. Because the kernel developers frown upon creating a new kernel thread, work queues are strongly preferred. They are also easy to use.
+8. Indeed, the usual alternative to work queues is kernel threads. Because the kernel developers frown upon creating a new kernel thread, work queues are strongly preferred. They are also easy to use.
+
 
 
 Which Bottom Half Should I Use?
