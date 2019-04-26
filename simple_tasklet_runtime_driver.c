@@ -14,6 +14,7 @@ unsigned int irq = 15;
 
 struct tasklet_struct  *my_tasklet;
 
+/*tasklet handler*/
 static void my_tasklet_handler(unsigned long flag)
 {
 	
@@ -38,7 +39,9 @@ static int simple_platform_driver_probe (struct platform_device *pdev)
 {
 	int ret;
 	unsigned long data = 156;
+
 	printk(KERN_ALERT " %s\n", __func__);
+
 	ret = request_irq(irq, &simple_interrupt_handler, IRQF_SHARED, "simple-platform-device" , pdev);
 	if(ret) {
 		printk(KERN_ALERT " Failed in request_irq  %s\n", __func__);
