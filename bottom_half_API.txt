@@ -1,0 +1,39 @@
+Workqueue - 
+
+#include <linux/workqueue.h>
+
+Declare and initialize a work item - 
+	DECLARE_WORK(name , void (*function)(struct work_struct *));
+	DECLARE_DELAYED_WORK(name, void(*function)(struct work_struct *));
+
+Initialize an already declared work item -
+	INIT_WORK(struct work_struct *work, void(*function)(struct work_struct *));
+	INIT_DELAYED_WORK(struct delayed_work *work, void(*function)(struct work_struct *));
+
+
+
+schedule_work(struct work_struct *work);
+
+schedule_delayed_work(struct delayed_work *work, unsigned long delay);
+
+The call only stops the subsequent execution of the work item. If the work item is already running at the time of the call, 
+it will continue to run. In any case, when these calls return, it is guaranteed that the task will no longer run.
+
+	int cancel_work_sync(struct delayed_work *work);
+	int cancel_delayed_work_sync(struct delayed_work *work);
+
+While there are versions of these functions that are not synchronous (.e.g. cancel_work()) do not use them when you are performing cleanup work otherwise race condition could occur.
+
+
+We can wait for a workqueue to complete running all of its work items by calling flush_scheduled_work():
+This function is blocking and, therefore, can not be used in interrupt context. The function will wait for all work items to be completed. 
+For delayed work items, cancel_delayed_work must be called before flush_scheduled_work().
+
+	void flush_scheduled_work(void);
+
+Finally, the following functions can be used to schedule work items on a particular processor (schedule_delayed_work_on()), or on all processors (schedule_on_each_cpu()):
+
+	int schedule_delayed_work_on(int cpu, struct delayed_work *work, unsigned long delay);
+	int schedule_on_each_cpu(void(*function)(struct work_struct *));
+
+
