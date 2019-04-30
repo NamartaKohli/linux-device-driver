@@ -1,0 +1,93 @@
+Softirq - 
+1. Softirqs are statically allocated at compile time. Unlike tasklets, you cannot dynamically register and destroy softirqs.
+2. A softirq never preempts another softirq. The only event that can preempt a softirq is an interrupt handler. Another softirq (even the same one) can run on another processor, however.
+3. Softirqs are reserved for the most timing-critical and important bottom-half processing on the system.
+	Currently, only two subsystems directly use softirqs:
+		Networking devices
+		Block devices
+4. Additionally, kernel timers and tasklets are built on top of softirqs.	
+5. The softirq handlers run with interrupts enabled and cannot sleep.
+6. While a handler runs, softirqs on the current processor are disabled. However, another processor can execute other softirqs.
+7. If the same softirq is raised again while it is executing, another processor can run it simultaneously. This means that any shared data, even global data used only within the softirq handler, needs proper locking.
+8. Simply preventing your softirqs from running concurrently is not ideal. If a softirq obtained a lock to prevent another instance of itself from running simultaneously, there would be no reason to use a softirq. 
+   Consequently, most softirq handlers resort to per-processor data (data unique to each processor and thus not requiring locking) and other tricks to avoid explicit locking and provide excellent scalability.
+9. The reason for using softirqs is scalability. If you do not need to scale to infinitely many processors, then use a tasklet. 
+   Tasklets are essentially softirqs in which multiple instances of the same handler cannot run concurrently on multiple processors.
+
+
+Tasklet -
+1. Tasklets are a bottom-half mechanism built on top of softirqs.
+2. As with softirqs, tasklets cannot sleep. You cannot use semaphores or other blocking functions in a tasklet.
+3. Tasklets also run with all interrupts enabled, so you must take precautions (for example, disable interrupts and obtain a lock) if your tasklet shares data with an interrupt handler.
+4. Unlike softirqs, two of the same tasklets never run concurrently, though two different tasklets can run at the same time on two different processors. If your tasklet shares data with another tasklet or softirq, you need to use proper    locking.
+5. After a tasklet is scheduled, it runs once at some time in the near future. If the same tasklet is scheduled again, before it has had a chance to run, it still runs only once.
+6 . If it is already running, for example on another processor, the tasklet is rescheduled and runs again. As an optimization, a tasklet always runs on the processor that scheduled it, making better use of the processor's cache.
+7. You can disable a tasklet via a call to tasklet_disable(), which disables the given tasklet. If the tasklet is currently running, the function will not return until it finishes executing.
+8. Alternatively, you can use tasklet_disable_nosync(), which disables the given tasklet but does not wait for the tasklet to complete prior to returning. This is usually not safe because you cannot assume the tasklet is not still runnin
+
+
+WorkQueue - 
+1. The work queue subsystem is an interface for creating kernel threads to handle work queued from elsewhere. These kernel threads are called worker threads. 
+2. Work queues enables your driver to create a special worker thread to handle deferred work. The work queue subsystem, however, implements and provides a default worker thread for handling work. 
+   Therefore, in its most common form, a work queue is a simple interface for deferring work to a generic kernel thread.
+3. The default worker threads are called events/n where n is the processor number; there is one per processor. For example, on a uniprocessor system there is one thread, events/0. 
+   A dual processor system would additionally have an events/1 thread.
+4. Unless a driver or subsystem has a strong requirement for creating its own thread, the default thread is preferred.
+5. Creating your own worker thread might be advantageous if you perform large amounts of processing in the worker thread. Processor-intense and performance-critical work might
+   benefit from its own thread. This also lightens the load on the default threads, which prevents starving the rest of the queued work
+6. Work queues defer work into a kernel thread; this bottom half always runs in process context:
+	Code deferred to a work queue has all the usual benefits of process context.
+	Most importantly, work queues are schedulable and can therefore sleep. 
+7. Normally, it is easy to decide between using work queues and softirqs/tasklets:
+	If the deferred work needs to sleep, work queues are used.
+	If the deferred work need not sleep, softirqs or tasklets are used.
+8. Indeed, the usual alternative to work queues is kernel threads. Because the kernel developers frown upon creating a new kernel thread, work queues are strongly preferred. They are also easy to use.
+
+
+
+Which Bottom Half Should I Use?
+	The decision over which bottom half to use is important. The current 2.6 kernel provides three choices: softirqs, tasklets, and work queues. 
+	Tasklets are built on softirqs and, therefore, both are similar. The work queue mechanism is an entirely different creature and is built on kernel threads.
+
+Softirqs: least serialization, for highly threaded code *
+	Softirqs, by design, provide the least serialization. This requires softirq handlers to go through extra steps to ensure that shared data is safe because two or more softirqs of the 
+	same type may run concurrently on different processors. If the code in question is already highly threaded, such as in a networking subsystem that is chest-deep in per-processor variables, 
+	softirqs make a good choice. They are certainly the fastest alternative for timing-critical and high-frequency uses.
+
+Tasklets: simple interface, for less threaded code *
+	Tasklets make more sense if the code is not finely threaded. They have a simpler interface and, because two tasklets of the same type might not run concurrently, they are easier to implement. 
+	Tasklets are effectively softirqs that do not run concurrently. A driver developer should always choose tasklets over softirqs, unless prepared to utilize per-processor variables or similar 
+	magic to ensure that the softirq can safely run concurrently on multiple processors.
+
+Work queues: process context *
+	If the deferred work needs to run in process context, the only choice of the three is work queues. If process context is not a requirements (specifically, if you have no need to sleep), 
+	softirqs or tasklets are perhaps better suited. Work queues involve the highest overhead because they involve kernel threads and, therefore, context switching. This doesn't mean they are inefficient, 
+	but in light of thousands of interrupts hitting per second (as the networking subsystem might experience), other methods make more sense. However, work queues are sufficient for most situations.
+
+Softirqs vs. tasklets vs. work queues
+	In terms of ease of use, work queues wins. Using the default events queue is easy. Next come tasklets, which also have a simple interface. Coming in last are softirqs, which need to be statically 
+	created and require careful thinking with their implementation.
+
+The following table is a comparison between the three bottom-half interfaces.
+	Bottom Half		Context			Inherent Serialization
+	Softirq			Interrupt		None
+	Tasklet			Interrupt		Against the same tasklet
+	Work queues		Process			None (scheduled as process context)
+
+In short, normal driver writers have two choices:
+	If you need a schedulable entity to perform your deferred work, and if fundamentally, you need to sleep for any reason, then work queues are your only option. Otherwise, tasklets are preferred. 
+	Only if scalability becomes a concern do you investigate softirqs.
+
+Locking Between the Bottom Halves
+	It is crucial to protect shared data from concurrent access while using bottom halves, even on a single processor machine. A bottom half can run at virtually any moment.
+	One benefit of tasklets is that they are serialized with respect to themselves. The same tasklet will not run concurrently, even on two different processors. 
+	This means you do not have to worry about intra-tasklet concurrency issues. Inter-tasklet concurrency (when two different tasklets share the same data) requires proper locking.
+	Because softirqs provide no serialization, (even two instances of the same softirq might run simultaneously), all shared data needs an appropriate lock.
+	If process context code and a bottom half share data, you need to do both of the following before accessing the data:
+	Disable bottom-half processing.
+	Obtain a lock.
+This ensures both ensures local and SMP protection and prevents a deadlock.
+If interrupt context code and a bottom half share data, you need to do both of the following before accessing the data:
+Disable interrupts.
+Obtain a lock.
+
