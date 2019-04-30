@@ -51,8 +51,8 @@ static int simple_platform_driver_probe (struct platform_device *pdev)
 static int simple_platform_driver_remove (struct platform_device *pdev)
 {
 	printk(KERN_ALERT " %s\n", __func__);
-	free_irq(irq, pdev);
 	tasklet_kill(&my_tasklet);
+	free_irq(irq, pdev);
 	return 0;
 }
 
