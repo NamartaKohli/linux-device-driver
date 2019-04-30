@@ -61,13 +61,13 @@ static int simple_platform_driver_probe (struct platform_device *pdev)
 static int simple_platform_driver_remove (struct platform_device *pdev)
 {
 	printk(KERN_ALERT " %s\n", __func__);
-	free_irq(irq, pdev);
 	flush_scheduled_work();
 	
 	/*Note that "flush_scheduled_work" function does not cancel any delayed work. Any work that was scheduled via schedule_delayed_work(), 
           and whose delay is not yet up, is not flushed via flush_scheduled_work(). To cancel delayed work, call: cancel_delayed_work */
 
 //	cancel_delayed_work( &my_work);
+	free_irq(irq, pdev);
 	return 0;
 }
 
