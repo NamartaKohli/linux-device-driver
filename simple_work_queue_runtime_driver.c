@@ -90,10 +90,10 @@ err_my_wq_failed:
 static int simple_platform_driver_remove (struct platform_device *pdev)
 {
 	printk(KERN_ALERT " %s\n", __func__);
-	free_irq(irq, pdev);
 	kfree(my_wq);
 	kfree(my_wq->my_data);
 	flush_scheduled_work();
+	free_irq(irq, pdev);
 	
 	/*Note that "flush_scheduled_work" function does not cancel any delayed work. Any work that was scheduled via schedule_delayed_work(), 
           and whose delay is not yet up, is not flushed via flush_scheduled_work(). To cancel delayed work, call: cancel_delayed_work */
