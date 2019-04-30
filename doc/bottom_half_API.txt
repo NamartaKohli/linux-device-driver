@@ -63,4 +63,22 @@ After waiting for a given time this puts a job in the kernel-global workqueue on
 
 CREATE YOUR OWN WORKQUEUE - 
 
+1. Create workqueue :-
+	struct workqueue_struct *create_workqueue( name );
+
+2. Distory workqueue :-
+	void destroy_workqueue( struct workqueue_struct * );
+
+3. This will queue the work to the CPU on which it was submitted, but if the CPU dies it can be processed by another CPU :-
+	int queue_work( struct workqueue_struct *wq, struct work_struct *work );
+
+4. This puts a work on a specific cpu :-
+	int queue_work_on( int cpu, struct workqueue_struct *wq, struct work_struct *work );
+
+5. After waiting for a given time this function puts a work in the workqueue :-
+	int queue_delayed_work( struct workqueue_struct *wq,struct delayed_work *dwork, unsigned long delay );
+
+6 After waiting for a given time this puts a job in the workqueue on the specified CPU:-
+	int queue_delayed_work_on( int cpu, struct workqueue_struct *wq, struct delayed_work *dwork, unsigned long delay );
+
 
