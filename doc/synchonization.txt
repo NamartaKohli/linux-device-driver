@@ -1,0 +1,293 @@
+-> Multiprocessing system has more than one processor and they can execute multiple process simultaneously.
+
+-> In Symmetric Multiprocessing, processors shares the same memory and operating system. 
+
+-> In Asymmetric Multiprocessing there is a one master processor that controls the data structure of the system. 
+
+-> Symmetric Multiprocessing is one in which all the processor run the tasks in the operating system. 
+   It has no master-slave relationship like asymmetric multiprocessing. All the processors here, communicate using the shared memory.
+
+-> Features of Symmetric Multiprocessing (SMP)
+   1. Symmetric multiprocessing is also known as tightly coupled multiprocessing as all the CPU’s are connected at the bus level and have access to a shared memory.
+   2. All the parallel processors in symmetric multiprocessing have their private cache memory to decrease system bus traffic and also reduce the data access time.
+   3. Symmetric multiprocessing systems allow a processor to execute any process no matter where its data is located in memory. The only stipulation is that a 
+      process should not be executing on two or more processors at the same time.
+
+-> Uses of Symmetric Multiprocessing
+   1. Symmetric multiprocessing is useful for time sharing systems as these have multiple processes running in parallel. So, these processes can be scheduled on parallel processors using symmetric multiprocessing.
+
+-> Advantages of Symmetric Multiprocessing
+   1. The throughput of the system is increased in symmetric multiprocessing. As there are multiple processors, more processes are executed.
+   2. Symmetric multiprocessing systems are much more reliable than single processor systems. Even if a processor fails, the system still endures. Only its efficiency is decreased a little.
+
+-> Disadvantages of Symmetric Multiprocessing
+   1. The operating system handles all the processors in symmetric multiprocessing system. This leads to a complicated operating system that is difficult to design and manage.
+   2. All the processors in symmetric multiprocessing system are connected to the same main memory. So a large main memory is required to accommodate all these processors.
+
+-> Crtical Region/section 
+   Code paths that access and manipulate shared data are called critical regions (also called critical sections). 
+   It is usually unsafe for multiple threads of execution to access the same resource simultaneously.
+   To prevent concurrent access during critical regions, the programmer must ensure that code executes atomically, 
+   which means that operations complete without interruption as if the entire critical region were one indivisible instruction.
+
+-> Race condition 
+   It is possible for two threads of execution to be simultaneously executing within the same critical region. 
+   When this occur, it is called a race condition, so-named because the threads raced to get there first. 
+   Debugging race conditions is often difficult because they are not easily reproducible.
+
+-> True concurrency
+   If you have a symmetrical multiprocessing machine, two processes can actually be executed in a critical region at the exact same time. That is called true concurrency
+
+-> The kernel has similar causes of concurrency:
+   1. Interrupts. An interrupt can occur asynchronously at almost any time, interrupting the currently executing code.
+   2. Softirqs and tasklets. The kernel can raise or schedule a softirq or tasklet at almost any time, interrupting the currently executing code.
+   3. Kernel preemption. Because the kernel is preemptive, one task in the kernel can preempt another.
+   4. Symmetrical multiprocessing. Two or more processors can execute kernel code at exactly the same time.
+   5. Sleeping and synchronization with user-space. A task in the kernel can sleep and thus invoke the scheduler, resulting in the running of a new process.
+
+-> Kernel developers need to understand and prepare for these causes of concurrency:
+   1. It is a major bug if an interrupt occurs in the middle of code that is manipulating a resource and the interrupt handler can access the same resource.
+   2. Similarly, it is a bug if kernel code is preemptive while it is accessing a shared resource.
+   3. Likewise, it is a bug if code in the kernel sleeps while in the middle of a critical section
+   4. Finally, two processors should never simultaneously access the same piece of data.
+
+-> Definitions of concurrency safe terms
+   1. Code that is safe from concurrent access from an interrupt handler is said to be interrupt-safe.
+   2. Code that is safe from concurrency on symmetrical multiprocessing machines is SMP-safe.
+   3. Code that is safe from concurrency with kernel preemption is preempt-safe.
+
+-> Ask yourself these questions whenever you write kernel code:
+   1. Is the data global? Can a thread of execution other than the current one access it?
+   2. Is the data shared between process context and interrupt context? Is it shared between two different interrupt handlers?
+   3. If a process is preempted while accessing this data, can the newly scheduled process access the same data?
+   4. Can the current process sleep (block) on anything? If it does, in what state does that leave any shared data?
+   5. What prevents the data from being freed out from under me?
+   6. What happens if this function is called again on another processor?
+   7. Given the proceeding points, how am I going to ensure that my code is safe from concurrency?
+
+-> Deadlock: 
+   A deadlock is a condition involving one or more threads of execution and one or more resources, such that each thread waits for one of the resources, 
+   but all the resources are already held. The threads all wait for each other, but they never make any progress toward releasing the resources that they 
+   already hold. Therefore, none of the threads can continue, which results in a deadlock.
+
+-> Prevention of deadlock scenarios is important.Although it is difficult to prove that code is free of deadlocks, you can write deadlock-free code following the rules below:
+   1. Implement lock ordering. Nested locks must always be obtained in the same order. This prevents the deadly embrace deadlock. Document the lock ordering so others will follow it.
+   2. Prevent starvation. Ask yourself:
+	Does this code always finish?
+   3. Do not double acquire the same lock.
+   4. Design for simplicity. Complexity in your locking scheme invites deadlocks.
+
+
+Kernel Synchronization Methods :-
+  1. Atomic operations :-
+	The kernel provides two sets of interfaces for atomic operations: one that operates on integers and another that operates on individual bits.
+  2. Spin Lock :- 
+	
+=================================================================================================================================================================================================================
+Atomic Operations :-
+  Despite being an integer, and thus 32 bits on all the machines that Linux supports, developers and their code once had to assume that an atomic_t was no larger than 24 bits in size.
+
+  A lock was embedded in the lower 8 bits of the 32-bit int.
+
+  The atomic integer methods operate on a special data type, atomic_t. This special type is used, as opposed to having the functions work directly on the C int type, for several reasons:
+	1. Having the atomic functions accept only the atomic_t type ensures that the atomic operations are used only with these special types. 
+	   Likewise, it also ensures that the data types are not passed to any non-atomic functions. Indeed, what good would atomic operations be if they were not consistently used on the data?
+	2. The use of atomic_t ensures the compiler does not (erroneously but cleverly) optimize access to the value—it is important the atomic operations receive the correct memory address and not an alias.
+	3. Use of atomic_t can hide any architecture-specific differences in its implementation.
+
+=================================================================================================================================================================================================================
+
+Spin Lock :-
+
+-> DEFINE_SPINLOCK(mr_lock);
+
+-> spin_lock_init -> Dynamically initializes given spinlock_t
+
+-> spin_lock(&mr_lock); -> Acquires given lock
+
+-> spin_unlock(&mr_lock); -> Releases given lock
+
+-> spin_trylock() -> Tries to acquire given lock; if unavailable, returns nonzero
+
+-> spin_is_locked() Returns nonzero if the given lock is currently acquired, otherwise it returns zero.
+
+-> Warning: Spin Locks Are Not Recursive!
+   Unlike spin lock implementations in other operating systems and threading libraries, the
+   Linux kernel’s spin locks are not recursive. This means that if you attempt to acquire a lock
+   you already hold, you will spin, waiting for yourself to release the lock. But because you are
+   busy spinning, you will never release the lock and you will deadlock. Be careful!
+
+-> Spin locks can be used in interrupt handlers, whereas semaphores cannot be used because
+   they sleep.
+
+-> If a lock is used in an interrupt handler, you must also disable local interrupts
+   (interrupt requests on the current processor) before obtaining the lock. Otherwise, it
+   is possible for an interrupt handler to interrupt kernel code while the lock is held and attempt
+   to reacquire the lock.The interrupt handler spins, waiting for the lock to become
+   available.The lock holder, however, does not run until the interrupt handler completes.
+
+-> The routine spin_lock_irqsave()saves the current state of interrupts, disables them
+   locally, and then obtains the given lock. Conversely, spin_unlock_irqrestore()unlocks
+   the given lock and returns interrupts to their previous state.This way, if interrupts were
+   initially disabled, your code would not erroneously enable them, but instead keep them
+   disabled.
+
+	-> spin_lock_irqsave(&mr_lock, flags); -> Saves current state of local interrupts, disables local interrupts, and acquires given lock
+	-> spin_unlock_irqrestore(&mr_lock, flags); -> Releases given lock and restores local interrupts to given previous state
+
+-> If you always know before the fact that interrupts are initially enabled, there is no need
+   to restore their previous state.You can unconditionally enable them on unlock. In those
+   cases, spin_lock_irq() and spin_unlock_irq() are optimal:
+
+   As the kernel grows in size and complexity, it is increasingly hard to ensure that
+   interrupts are always enabled in any given code path in the kernel. Use of
+   spin_lock_irq()therefore is not recommended. If you do use it, you had better be positive
+   that interrupts were originally on or people will be upset when they expect interrupts
+   to be off but find them on!
+
+	-> spin_lock_irq(&mr_lock); -> Disables local interrupts and acquires given lock.
+	-> spin_unlock_irq(&mr_lock); -> Releases given lock and enables local interrupts
+
+
+
+
+Spin Locks and Bottom Halves
+
+-> spin_lock_bh() -> obtains the given lock and disables all bottom halves.
+
+-> spin_unlock_bh() -> release the lock and enables all bottom half.
+
+-> Because a bottom half might preempt process context code, if data is shared between a
+   bottom-half process context, you must protect the data in process context with both a
+   lock and the disabling of bottom halves.
+
+-> Likewise, because an interrupt handler might
+   preempt a bottom half, if data is shared between an interrupt handler and a bottom half,
+   you must both obtain the appropriate lock and disable interrupts.
+
+-> Two tasklets of the same type do not ever run simultaneously.Thus, there is
+   no need to protect data used only within a single type of tasklet.
+
+-> If the data is shared between two different tasklets, however, you must obtain a normal 
+   spin lock before accessing the data in the bottom half.You do not need to disable bottom halves 
+   because a tasklet never preempts another running tasklet on the same processor.
+
+-> With softirqs, regardless of whether it is the same softirq type, if data is shared by
+   softirqs, it must be protected with a lock. Recall that softirqs, even two of the same type,
+   might run simultaneously on multiple processors in the system.A softirq never preempts
+   another softirq running on the same processor, however, so disabling bottom halves is not needed.
+
+=========================================================================================================================================================================================================================
+
+Semaphores :- <asm/semaphore.h>
+
+Semaphores in Linux are sleeping locks.When a task attempts to acquire a semaphore
+that is unavailable, the semaphore places the task onto a wait queue and puts the task to
+sleep.The processor is then free to execute other code.When the semaphore becomes
+available, one of the tasks on the wait queue is awakened so that it can then acquire the
+semaphore.
+
+You can draw some interesting conclusions from the sleeping behavior of semaphores:-
+
+1. Because the contending tasks sleep while waiting for the lock to become available,
+   semaphores are well suited to locks that are held for a long time.
+
+2. Conversely, semaphores are not optimal for locks that are held for short periods because
+   the overhead of sleeping, maintaining the wait queue, and waking back up
+   can easily outweigh the total lock hold time.
+
+3. Because a thread of execution sleeps on lock contention, semaphores must be obtained
+   only in process context because interrupt context is not schedulable.
+
+4. You cannot hold a spin lock while you acquire a semaphore, because you might
+   have to sleep while waiting for the semaphore, and you cannot sleep while holding a spin lock.
+
+
+Counting Semaphore :-
+	struct semaphore name;
+	sema_init(&name, count);
+	
+Binary Semaphore :-
+static DECLARE_MUTEX(name);
+
+Similarly, to initialize a dynamically created mutex, you can use
+	init_MUTEX(sem); 
+
+
+-> sema_init(struct semaphore *, inti count) -> Initializes the dynamically created semaphore to the given count
+
+-> init_MUTEX(struct semaphore *) -> Initializes the dynamically created semaphore with a count of one
+
+-> init_MUTEX_LOCKED(struct semaphore *) -> Initializes the dynamically created semaphore with a count of zero (so it is initially locked)
+
+-> down_interruptible (struct semaphore *) -> Tries to acquire the given semaphore and enter interruptible sleep if it is contended
+
+-> down(struct semaphore *) -> Tries to acquire the given semaphore and enter uninterruptible sleep if it is contended
+
+-> down_trylock(struct semaphore *) Tries to acquire the given semaphore and immediately return nonzero if it is contended
+
+-> up(struct semaphore *) Releases the given semaphore and wakes a waiting task, if any
+
+=========================================================================================================================================================================================================
+
+Mutex :-
+
+The mutex is represented by struct mutex. It behaves similar to a semaphore with a
+count of one, but it has a simpler interface, more efficient performance, and additional
+constraints on its use.
+
+-> DEFINE_MUTEX(name); -> statically define a mutex
+
+-> mutex_init(&mutex); -> dynamically initialize a mutex
+
+-> mutex_lock(struct mutex *) -> Locks the given mutex; sleeps if the lock is unavailable
+
+->mutex_unlock(struct mutex *) -> Unlocks the given mutex
+
+->mutex_trylock(struct mutex *) -> Tries to acquire the given mutex; returns one if successful and the lock is acquired and zero otherwise
+
+->mutex_is_locked (struct mutex *) -> Returns one if the lock is locked and zero otherwise
+
+
+-> Only one task can hold the mutex at a time.That is, the usage count on a mutex is always one.
+
+-> Whoever locked a mutex must unlock it.That is, you cannot lock a mutex in one context and then unlock it in another.This means that the mutex isn’t suitable for
+   more complicated synchronizations between kernel and user-space. Most use cases, however, cleanly lock and unlock from the same context.
+
+-> Recursive locks and unlocks are not allowed.That is, you cannot recursively acquire the same mutex, and you cannot unlock an unlocked mutex.
+
+-> A process cannot exit while holding a mutex.
+
+-> A mutex cannot be acquired by an interrupt handler or bottom half, even with mutex_trylock().
+
+
+======================================================================================================================================================================================================
+
+Completion Variables :- <linux/completion.h>
+
+Using completion variables is an easy way to synchronize between two tasks in the kernel
+when one task needs to signal to the other that an event has occurred. One task waits on
+the completion variable while another task performs some work.When the other task has
+completed the work, it uses the completion variable to wake up any waiting tasks. If you
+think this sounds like a semaphore, you are right—the idea is much the same. In fact,
+completion variables merely provide a simple solution to a problem whose answer is otherwise
+semaphores. For example, the vfork() system call uses completion variables to
+wake up the parent process when the child process execs or exits.
+
+
+-> DECLARE_COMPLETION(mr_comp); -> A statically created completion variable is created and initialized
+
+-> init_completion -> A dynamically created completion variable is initialized.
+
+-> init_completion(struct completion *) Initializes the given dynamically created completion variable
+
+-> wait_for_completion(struct completion *) Waits for the given completion variable to be signaled
+
+-> complete(struct completion *) Signals any waiting tasks to wake up
+
+=================================================================================================================================================================================================
+
+
+
+
+ 
