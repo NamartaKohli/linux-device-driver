@@ -81,7 +81,10 @@
 Kernel Synchronization Methods :-
   1. Atomic operations :-
 	The kernel provides two sets of interfaces for atomic operations: one that operates on integers and another that operates on individual bits.
-  2. Spin Lock :- 
+  2. Spin Lock
+  3. Seamphore
+  4. mutex
+  5. completion varibale
 	
 =================================================================================================================================================================================================================
 Atomic Operations :-
@@ -176,6 +179,16 @@ Spin Locks and Bottom Halves
    softirqs, it must be protected with a lock. Recall that softirqs, even two of the same type,
    might run simultaneously on multiple processors in the system.A softirq never preempts
    another softirq running on the same processor, however, so disabling bottom halves is not needed.
+
+Important points - 
+
+-> If you share data with user context (between Kernel Threads), then you can use  spin_lock, mutex, semaphores 
+
+-> If you want to share data between two different Bottom halves or same bottom halves you should use spin_lock
+
+-> If you share data with a bottom half and user contex you should use spin_lock_bh
+
+-> Locking between Hard IRQ and Bottom Halves OR Locking between Hard IRQs you should use spin_lock_irq() or spin_lock_irq_save()
 
 =========================================================================================================================================================================================================================
 
@@ -283,7 +296,13 @@ wake up the parent process when the child process execs or exits.
 
 -> wait_for_completion(struct completion *) Waits for the given completion variable to be signaled
 
+-> unsigned long wait_for_completion_timeout (struct completion * x, unsigned long timeout); 
+
+-> void complete_all (struct completion * x); -> will wake up all threads waiting on this particular completion event.
+
 -> complete(struct completion *) Signals any waiting tasks to wake up
+
+-> bool completion_done (struct completion * x); -> This is the test to see if a completion has any waiters.
 
 =================================================================================================================================================================================================
 
