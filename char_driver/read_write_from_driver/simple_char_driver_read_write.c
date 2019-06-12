@@ -11,7 +11,9 @@
 
 dev_t dev = 0;
 static struct class *dev_class;
-#define mem_size 20
+#define mem_size 256
+
+int data_copied = 0;
 
 static struct simple_char_dev {
 	  
@@ -69,6 +71,7 @@ static int simple_char_release(struct inode *inode, struct file *file)
 		kfree(dev->data);
 	}
 	
+	data_copied = 0;
 	mutex_unlock(&dev->mutex);
         printk(KERN_INFO "Driver Release Function Called...!!!\n");
         return 0;
@@ -80,14 +83,14 @@ static ssize_t simple_char_read(struct file *filp, char __user *buf, size_t len,
 	
 	mutex_lock(&dev->mutex);
 
-	if (copy_to_user(buf, dev->data, mem_size))
+	if (copy_to_user(buf, dev->data, data_copied))
 		return -EFAULT;
 //	printk(KERN_ERR "data got from the user space = %s\n", dev->data);
 	mutex_unlock(&dev->mutex);
 
         printk(KERN_INFO "Driver Write Function Called...!!!\n");
 	
-        return mem_size;
+        return data_copied;
     
 }
 static ssize_t simple_char_write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
@@ -100,6 +103,7 @@ static ssize_t simple_char_write(struct file *filp, const char __user *buf, size
 	if (copy_from_user(dev->data, buf, len))
 		return -EFAULT;
 
+	data_copied = len;
 	mutex_unlock(&dev->mutex);
 
         printk(KERN_INFO "Driver Write Function Called...!!!\n");

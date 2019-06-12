@@ -4,10 +4,11 @@
 #include <unistd.h> //sleep
 #include <string.h>
 
+#define MEM_SIZE 256
 int main()
 {
 	int fd, count;
-	char buf[20];
+	char buf[MEM_SIZE];
 	fd = open("/dev/char_device", O_RDWR);
 	if(fd == -1)
 	{
@@ -17,16 +18,19 @@ int main()
 	}
 	printf("simple driver opened sucesfully fd = %d\n", fd);
 
-	printf("Please eneter some msg\n");
-	fgets(buf, 20, stdin);
-	printf("sending msg to driver  = %s\n", buf);
-	count = write(fd, buf, sizeof(buf));
-	
+	printf("Please enter some msg\n");
+
+	fgets(buf, MEM_SIZE, stdin);
+
+	count = write(fd, buf, strlen(buf));
+
+	printf("%s msg sent to driver of length = %d\n", buf, count);
+
 	memset(buf, 0, sizeof(buf));
 	
 	count = read(fd, buf, sizeof(buf));
  
-	printf("simple driver read sucesfully  = %s\n", buf);
+	printf("%s msg read from the driver of length = %d\n", buf, count);
 	sleep(3);
 	close(fd);	
 	return EXIT_SUCCESS;
