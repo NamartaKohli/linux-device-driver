@@ -1,0 +1,75 @@
+DMA -
+DMA is the hardware mechanism that allows peripheral components to transfer their 
+I/O data directly to and from main memory without the need to involve the system processor.
+
+Data transfer can be triggered in two ways: 
+1. either the software asks for data (via a function such as read) or 
+2. the hardware asynchronously pushes data to the system. 
+
+
+Vmalloc - The vmalloc function allocates cached memory which is virtually 
+contiguous but not physically contiguous.
+	-> not as useful for DMA without an IOMMU
+
+Kmalloc - The kmalloc function allocates cached memory which is physically
+contiguous.
+	-> it is limited in the size of a single allocation.
+	-> Testing showed 4MB to be the limit but it might vary
+	   with kernels
+
+dma_alloc_coherent - this function allocates non-cached physically contiguous
+memory
+	-> The CPU and the I/O device see the same memory contents without 
+	   any cache operations by software.
+	-> The CPU does not haveto invalidate or flush the cache which can be time consuming.
+	-> This function is the intended function for DMA memory allocation.
+	 
+DMA Cache Control - 
+	-> Linux provides DAM function for cache control of DMA buffers.
+	-> Cache control is based on the direction of DMA transfer, from
+	   memory to device, from device to memory, or birectional.
+	-> For transfer from memory to a device, the memory must be flushed 
+	   from the cache to memory before a DMA transfer is started.
+	-> For transfers from a device to memory, the cache must be invalidated after the transfer and before CPU accesses memory.
+	-> dma_map_single() is provided to transfer ownership of a buffer from buffer from the CPU yo the DAM hardware.
+	-> dma_map_single() can cause a cache flush for the buffer in the memory to device direction.
+	-> dma_unmap_single() is provided to transfer ownership of a buffer from the DMA hadware back to the CPU.
+	-> dma_unmap_single() can cause a cache invalidate for the buffer in the device to memory direction.
+
+Linux Kernel Details For DMA
+
+	-> A descriptor is used to describe a DAM transaction such that a a single data structure can be passed to API.
+	-> A completion is a lightweight mechanism which allow one thread  to tell another thread that a task is done.
+	-> A tasklet implements deferrable functionality and replace older bottom half mechanisms for drivers
+	-> A cookie is a piece of opaque data which is returned from a function, them passed to yet a different 
+	   function communicating information which only those function understand.
+	-> A DMA cookie is returned from dmaengine_submit() and is passed to dma_async_is_tx_complete() to check 
+           for completion of a specific DMA transaction.
+	-> DMA cookies may also contain a status of a DMA transaction.
+
+
+LINUX DMA ENGINE SLAVE API - 
+	-> The DMA Engine driver works as a layer on top of the intel DMA driver using the slave DMA API.
+	-> it appears that slave may refer to the fact that the software initiates the DMA transactions to the 
+	   DMA controller hardware rather than a hardware device with integrated DMA initiating a tarnsaction.
+	-> Drivers which use the DMA engine driver are referred to as a client.
+	-> The function dma_request_channel() is used to request a channel 
+	-> The function dma_release_channel() is used to release a channel
+	-> The dmaengine_prep_slave_single() function gets a descriptor for a DMA transaction.
+	-> The dmaengine_submit() function submits the descriptor to the DMA engine to be put in the pending queue.
+	-> the dma_async_issue_pending() function is used to start the DMA transaction that was previously put in the pending queue.
+		If the channel is idle then the first transaction in queue is started and subsequent transactions are queued up.
+		On completion of each DMA operation, the next in the queue is started and a tasklet triggered. The tasklet will 
+		then call the client driver completion callbacks routine for notification, if set.
+ 
+The Slave DMA usage consistes of following these steps - 
+
+1. Allocate a DMA slave Channel.
+2. set slave and controller specific parameters.
+3. Get a descriptor for the transaction.
+4. Submit the transaction to queue it in the DMA engine.
+5. Issue pending requests (start the transaction)
+6. wait for it to complete.
+
+
+
